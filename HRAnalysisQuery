@@ -1,0 +1,133 @@
+SELECT *
+FROM HRDataset_v9
+
+
+
+/* Check the pay difference between mails and femails with possition group
+
+SELECT sex, position, AVG(cast([pay rate] as decimal)) AS AVG_salary, count(*) AS Number_of_employees 
+FROM basic_info
+WHERE Pay_range_status IS NOT NULL
+GROUP BY Sex, Position
+----------------------------------------------------------------------------------------------------------------------
+*/
+
+/* Check the pay difference between mails and femails without possition group
+
+SELECT sex, AVG(cast([pay rate] as decimal))
+FROM basic_info
+WHERE Pay_range_status IS NOT NULL
+GROUP BY Sex
+
+The reason for the difference between mails and femails salary is that most of the high salary positions are held by mails.
+----------------------------------------------------------------------------------------------------------------------
+
+*/
+/* check the histogram of payment acccording to pay range policy
+
+SELECT Pay_range_status, COUNT(*)
+FROM basic_info
+WHERE Pay_range_status IS NOT NULL
+GROUP BY Pay_range_status
+
+25 out of 229 (10%) are out of the pay range
+----------------------------------------------------------------------------------------------------------------------
+*/
+/*this query is to check if there is aproblem with the company not enforcing her pay range
+
+SELECT Pay_range_status, [Employment Status], [Reason For Term],COUNT(*) AS Number_of_employees
+FROM basic_info
+WHERE Pay_range_status IS NOT NULL AND [Employment Status] NOT IN ('Active','Future start', 'Leave of Absence')
+GROUP BY Pay_range_status, [Employment Status], [Reason For Term]
+
+the reason "more money" for termnation doesnt apear aspecially in pay range status 1. so we cen say that the missenforcment of the policy doesnt effect the employees under the company policy
+----------------------------------------------------------------------------------------------------------------------
+*/
+/*
+This query is to check what are the main reasons for termination.
+SELECT  *,
+CAST( CAST (Number_of_employees AS NUMERIC (5,2))/(SELECT SUM(Number_of_employees) 
+  												   FROM (SELECT  COUNT(*) AS Number_of_employees
+														 FROM basic_info
+														 WHERE Pay_range_status IS NOT NULL AND [Employment Status] NOT IN ('Active','Future start', 'Leave of Absence')
+														 GROUP BY  [Reason For Term]
+														 ) AS TEMP1
+	) AS DECIMAL (10,10)
+													)AS Prec_from_total 
+
+FROM (
+		SELECT  [Reason For Term], COUNT(*) AS Number_of_employees
+		FROM basic_info
+		WHERE Pay_range_status IS NOT NULL AND [Employment Status] NOT IN ('Active','Future start', 'Leave of Absence')
+		GROUP BY  [Reason For Term]
+ 	 ) AS TEMP
+
+ORDER BY Prec_from_total DESC
+
+We can see that the first 3 reasons for leaving the company (almost 50%) are dissatisfaction from position, salary or other.
+This means that we have a problem that needs to be fixed.
+
+----------------------------------------------------------------------------------------------------------------------
+*/
+/*
+This query is to check wheather the lower pay range effects the reason fpr leaving the company
+
+SELECT Pay_range_status,
+[Reason For Term],
+SUM	(Number_of_terminations_by_reasons)  OVER (PARTITION BY pay_range_status) AS Number_of_terminations_by_pay_range_status,
+Number_of_terminations_by_reasons,
+CAST (CAST( Number_of_terminations_by_reasons AS DECIMAL (5,2)) / SUM(Number_of_terminations_by_reasons)  OVER (PARTITION BY pay_range_status) AS DECIMAL (2,2)) AS percentage1
+FROM
+(
+	SELECT Pay_range_status,
+		   [Reason For Term], 
+		   COUNT([Employment Status]) AS Number_of_terminations_by_reasons
+	FROM basic_info
+	WHERE Pay_range_status IS NOT NULL AND [Employment Status] NOT IN ('Active','Future start', 'Leave of Absence')
+	GROUP BY Pay_range_status,[Reason For Term]
+
+)AS temp_table
+
+ORDER BY Pay_range_status
+
+From the report we can see that in the lower pay range there isnt a significant effect of the money eventhough they are below pay range.
+The intresting thing is that in the above pay range, the reason for money is more significant
+
+----------------------------------------------------------------------------------------------------------------------
+*/
+/*
+This query provides histogram of the actual pay rate with a bin of 5
+
+SELECT Pay_rate,
+COUNT(Pay_rate)AS number_of_employees
+FROM
+(
+	SELECT ROUND(CAST([Pay Rate] AS money)*2,-1)/2 AS Pay_rate  
+	FROM HRDataset_v9
+	WHERE [Employment Status]='active'
+)
+	AS TEMP_TABLE
+GROUP BY Pay_rate 
+ORDER BY Pay_rate
+----------------------------------------------------------------------------------------------------------------------
+*/
+/*
+This query analyze the actual pay rate histogram and explains the reason fot the form of the histogram
+
+SELECT Pay_rate,
+	   position,
+	   COUNT(Pay_rate)AS number_of_employees
+FROM
+(
+	SELECT ROUND(CAST([Pay Rate] AS money)*2,-1)/2 AS Pay_rate  ,
+		   position
+	FROM HRDataset_v9
+	WHERE [Employment Status]='active'
+)
+	AS TEMP_TABLE
+GROUP BY Pay_rate ,position
+ORDER BY Pay_rate ,position
+
+We can see that the histogram bumps up in the 55 bin due to the area sales manager. there are alot of them in the company
+----------------------------------------------------------------------------------------------------------------------
+*/
